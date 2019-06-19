@@ -1,0 +1,520 @@
+
+
+# 40K Weapon Roller
+
+# Give predicted wounds for different weapon/shooter/target combos
+
+##############
+### IMPORT ###
+##############
+
+# Use DECIMAL to avoid long floating point results when calculating chances
+
+from decimal import *
+
+getcontext().prec = 4
+
+getcontext().rounding = ROUND_UP
+
+# Use csv for saving files
+
+import csv
+
+# Random for dice rolls
+
+import random
+
+
+
+#################
+### FUNCTIONS ###
+#################
+
+# SAVE A FILE
+
+# Writes info from the current calculation into a file of your choosing
+
+
+def save_results(shotNumber, shotStrength, shotAP, toHit, hitNumber, targetTough, woundNumber,
+                  targetArmourSave, targetInvSave, unsavedWounds, woundChance, woundFailRoll, notes):
+
+    fileName = input("Enter file name.\n")
+
+    attacks="Attack Number"
+    strength="Attack Strength"
+    armorp="AP Value"
+    tohit="To Hit"
+    numberhits="Exp. Hits"
+    targetT="Target T"
+    expw="Exp. Wounds"
+    targetarm="Target +"
+    targetinv="Target ++"
+    unsaved="Exp. Unsaved Wounds"
+    notesheader="Notes"
+    hitRollReq="Hit Roll"
+    woundRollReq="Wound Roll"
+    saveFailRollReq="Failed Save Roll"
+    
+
+    header_row = [attacks, strength, armorp, tohit, numberhits, targetT, expw, targetarm, targetinv, unsaved,  hitRollReq, woundRollReq, saveFailRollReq, notesheader,] 
+
+    data_row = [shotNumber, shotStrength, shotAP, toHit, hitNumber, targetTough, woundNumber,
+                  targetArmourSave, targetInvSave, unsavedWounds, toHit, woundChance, woundFailRoll, notes]
+
+    with open ("%s.csv" % (fileName), 'w', newline='') as csv_file:
+
+        writer = csv.writer(csv_file)
+
+        writer.writerow(header_row)
+        writer.writerow(data_row)
+
+# READ FROM CSV
+
+# Read a previously saved .csv file and print contents
+
+def read_results():
+
+    openFile = input("Which file would you like to open?\n")
+
+    with open ("%s.csv" % (openFile)) as csv_file:
+
+           csv_reader = csv.reader(csv_file, delimiter=",")
+           line_count = 0
+
+           for row in csv_reader:
+
+               if line_count == 0:
+
+                   print("")
+                   line_count += 1
+
+
+               else:
+
+                    attacks = row[0]
+                    hitRollReq = row[3]
+                    woundRollReq = row[11]
+                    saveFailRollReq = row[12]
+
+                    hitRollReq = hitRollReq[:1]
+                    woundRollReq = woundRollReq[:1]
+                    saveFailRollReq = saveFailRollReq[:1]
+
+                   
+                    print(f"{row[0]} attacks at strength {row[1]} with -{row[2]} AP and hitting on {row[3]}+. Hits scored: {row[4]}\n\
+Target has Toughness {row[5]}, so we expect {row[6]} wounds. \n\
+Save is {row[7]}+ or {row[8]}++, we expect {row[9]} unsaved wounds.")
+                    
+                    line_count+= 1
+
+                    input ("Press any key to continue \n")
+                    return (attacks, hitRollReq, woundRollReq, saveFailRollReq)
+
+# DISPLAY RESULTS
+
+# Show results of data
+
+def show_results(shotNumber, shotStrength, shotAP, toHit, hitNumber, targetTough, woundNumber,
+                  targetArmourSave, targetInvSave, unsavedWounds, notes):
+
+    displayArray = [shotNumber, shotStrength, shotAP, toHit, hitNumber, targetTough, woundNumber,
+                      targetArmourSave, targetInvSave, unsavedWounds, notes]
+
+    print("Here are the results of ",notes,"\n")
+    print(displayArray[0]," attacks at strength ",displayArray[1]," with - ",displayArray[2]," AP and hitting on ",displayArray[3],". Hits scored: ",displayArray[4],"\n\
+Target has Toughness ",displayArray[5],", so we expect ",displayArray[6]," wounds. \n\
+Save is ",displayArray[7],"+ or ",displayArray[8],"++, we expect ",displayArray[9]," unsaved wounds.")
+
+       
+
+# CHANCE CALCULATOR
+
+# Takes a number between 1 - 6. Deducts from 6 then adds 1 (because chances are inclusive), then divides by 6 to find odds of success
+# To find odds of failure (for failed saves etc), subtract the result from 1
+
+def chance_calculator (chance):
+
+    odds = Decimal((6 - chance) + 1) / 6
+
+    return odds
+
+
+# ROLL VIRTUAL DICE
+
+# Roll virtual dice for the requested profile
+
+def dice_roller(diceNumber, reqRoll, fail):
+
+    #fail = int(input("Find success of success or of failing? i.e. failing a save, or making a save \n [1] Success \n [2] Fail \n"))
+
+    numberArray = []
+
+    for i in range (diceNumber):
+
+        diceResult = random.randint(1,6)
+
+        numberArray.append(diceResult)
+
+    numberArray.sort()
+
+    count1 = numberArray.count(1)
+    count2 = numberArray.count(2)
+    count3 = numberArray.count(3)
+    count4 = numberArray.count(4)
+    count5 = numberArray.count(5)
+    count6 = numberArray.count(6)
+
+
+    print (count1,"rolls of 1")
+    print (count2,"rolls of 2")
+    print (count3,"rolls of 3")
+    print (count4,"rolls of 4")
+    print (count5,"rolls of 5")
+    print (count6,"rolls of 6")
+
+    if fail == 1:
+
+        result = (numberArray.index(reqRoll))
+
+    else:
+
+        result = diceNumber - (numberArray.index(reqRoll))
+        
+
+    return (result)
+
+
+# HIT CALCULATOR
+
+
+# Multiplies shots by odds of hitting and returns
+
+def hit_calculator(shotNumber, toHit):
+
+    hitChance = chance_calculator (toHit)
+
+    hitNumber = Decimal(shotNumber*hitChance)
+
+    return hitNumber
+
+# Calculate hits
+
+def hit_finder():
+
+    shotNumber = int(input("How many shots?\n"))
+
+    toHit = int(input("What is your to-hit roll? Use '1' for auto-hit.\n"))
+
+    hitNumber = hit_calculator (shotNumber, toHit)
+
+    #print ("We expect to score",hitNumber,"hits")
+
+    return shotNumber, toHit, hitNumber
+
+
+# WOUND CALCULATOR
+
+
+# Calculate wounds
+
+def wound_finder(hitNumber):
+    
+    shotStrength = int(input("Strength of your weapon?\n"))
+
+    targetTough = int(input("What is your target's Toughness?\n"))
+
+    woundNumber, woundChance = wound_calculator(shotStrength, targetTough, hitNumber)
+
+    #print ("We expect to score",woundNumber,"wounds")
+
+    return shotStrength, targetTough, woundNumber, woundChance
+
+# Compares weapon strength to target tough and calculates odds of wounding
+
+def wound_calculator (shotStrength, targetTough, hitNumber):
+
+    if shotStrength == (targetTough*2):
+
+        #print ("Wounding on 2")
+        woundChance = chance_calculator(2)
+
+    elif shotStrength > targetTough:
+
+        #print ("Wounding on 3")
+        woundChance = chance_calculator(3)
+    
+    elif shotStrength == targetTough:
+
+        #print ("Wounding on 4")
+        woundChance = chance_calculator(4)
+
+    elif shotStrength*2 <= targetTough:
+
+        #print ("Wounding on 6")
+        woundChance = chance_calculator(6)
+
+    elif shotStrength < targetTough:
+
+        #print ("Wounding on 5")
+        woundChance = chance_calculator(5)
+
+    woundNumber = Decimal(hitNumber*woundChance)
+
+    return woundNumber, woundChance
+
+
+
+# UNSAVED WOUND CALCULATOR
+
+# Calculate failed saves
+
+def save_finder(woundNumber):
+    
+    targetArmourSave = int(input("What armour save does the target have?\n"))
+
+    shotAP = int(input("Your weapons AP Value? Do not enter '-'\n"))
+
+    targetInvSave = int(input("If the target has an invulnerable save, what is it? If no invuln, enter '0'\n"))
+
+    unsavedWounds, woundFailChance = unsaved_wound_calculator(woundNumber, targetArmourSave, targetInvSave, shotAP)
+
+    #print ("We expect the target to suffer",unsavedWounds,"unsaved wounds")
+
+    return targetArmourSave, shotAP, targetInvSave, unsavedWounds, woundFailChance
+
+# Adjusts required save from armour value and AP
+# Chooses best save - inv or armour
+# Returns odds of unsaved wounds
+
+def unsaved_wound_calculator(woundNumber, targetArmourSave, targetInvSave, shotAP):
+
+    modifiedArmourSave = targetArmourSave + shotAP
+
+    #print ("Armour save requires ",targetArmourSave,"-",shotAP,", which equals a roll of",modifiedArmourSave,"+")
+
+    if targetInvSave == 0 and modifiedArmourSave > 6:
+
+        unsavedWounds = woundNumber
+
+        return unsavedWounds
+    
+
+    elif targetInvSave == 0 and modifiedArmourSave <= 6:
+
+        bestSave = modifiedArmourSave
+
+       
+    elif modifiedArmourSave < targetInvSave:
+
+        bestSave = modifiedArmourSave
+        
+
+    elif modifiedArmourSave >= targetInvSave:
+
+        bestSave = targetInvSave
+
+    woundFailChance = chance_calculator(bestSave)
+
+    unsavedWounds = (1 - woundFailChance) * woundNumber
+
+    return unsavedWounds, woundFailChance
+
+
+# Retrieve a file and roll virtual dice for it
+
+def dice_retrieve():
+
+    openFile = input("Which file would you like to open?\n")
+
+    with open ("%s.csv" % (openFile)) as csv_file:
+
+           csv_reader = csv.reader(csv_file, delimiter=",")
+           line_count = 1
+
+           for row in csv_reader:
+
+                    print(f"{row[0]} attacks at strength {row[1]} with -{row[2]} AP and hitting on {row[3]}+. Hits scored: {row[4]}\n\
+Target has Toughness {row[5]}, so we expect {row[6]} wounds. \n\
+Save is {row[7]}+ or {row[8]}++, we expect {row[9]} unsaved wounds.")
+
+                    diceNumber = {row[0]}
+                    hitChance = {row[3]}
+
+                    hits = dice_roller(diceNumber, hitChance)
+                    
+                    targetT = {row[5]}
+                    shotS = {row[1]}
+
+                    woundChance = wound_finder (targetT, ShotS)
+
+
+# Luck compare
+
+def luck_compare (dice, result, RollReq):
+  
+  
+    odds = chance_calculator(RollReq)
+
+    expected_result = (dice * odds)
+
+    one_percent = Decimal(dice / 100)
+   
+
+    expected_luck = (expected_result / one_percent)
+
+    actual_luck = (result / one_percent)
+
+    luck_result = (actual_luck - expected_luck)
+
+    print ("Expected",expected_result,", scored",result)
+
+    return (luck_result)
+
+
+
+
+#################
+### MAIN LOOP ###
+#################
+
+while True:
+
+    setupChoice = int(input("Press 1 to make a new calculation, or 2 to read a saved one.\n [1] New calculation \n [2] Retrieve saved file \n [3] Roll virtual dice \n [4] Exit \n"))
+
+# New calculation
+
+
+    if setupChoice == 1:
+
+        notes = input("Please provide some notes; your target, weapon, etc.\n")
+        
+
+        # Hits
+            
+        shotNumber, toHit, hitNumber = hit_finder()
+        
+        
+        # Wounds
+
+        shotStrength, targetTough, woundNumber, woundChance = wound_finder(hitNumber)
+
+        woundChance = (7 - (woundChance * 6))
+
+        woundChance = round(woundChance,1)
+
+        
+        # Failed Saves
+
+        targetArmourSave, shotAP, targetInvSave, unsavedWounds, woundFailChance = save_finder(woundNumber)
+
+        woundFailChance = ((1 - woundFailChance) * 6)
+
+        woundFailRoll = round(woundFailChance,1)
+        
+
+        # Display Results
+
+        show_results(shotNumber, shotStrength, shotAP, toHit, hitNumber, targetTough, woundNumber,
+                      targetArmourSave, targetInvSave, unsavedWounds, notes)
+
+        
+        # Save results
+
+        chooseSave = int(input("Would you like to save these results, or return to the start? \n [1] Save \n [2] Return to start \n [3] Exit \n"))
+              
+        if chooseSave == 1:
+
+                            save_results(shotNumber, shotStrength, shotAP, toHit, hitNumber, targetTough, woundNumber,
+                            targetArmourSave, targetInvSave, unsavedWounds, woundChance, woundFailRoll, notes)
+                            
+
+        # Restart loop
+
+        elif chooseSave == 2:
+
+            continue
+      
+        
+        # Exit loop
+
+        elif chooseSave == 3:
+
+            break
+
+        else:
+
+                             print ("Please choose a valid option")
+
+                         
+# Read a previous file       
+
+    elif setupChoice == 2:
+
+        read_results()
+        
+
+# Roll dice      
+
+    elif setupChoice == 3:
+
+        (attacks, hitRollReq, woundRollReq, saveFailRollReq) = read_results()
+
+        (initial_dice) = int(attacks)
+        (hitRollReq_int) = int(hitRollReq)
+        (woundRollReq_int) = int(woundRollReq)
+        (saveFailRollReq_int) = int(saveFailRollReq)
+
+
+        print ("Let's roll some dice!\n")
+
+        print ("First off,",initial_dice,"attacks hitting on",hitRollReq)
+
+        input ("Press ENTER to roll . . . \n")
+
+        hits = dice_roller(initial_dice, hitRollReq_int, 0)
+
+        luck_result = luck_compare(initial_dice, hits, hitRollReq_int)
+
+        print (luck_result)
+        
+
+        print ("Now for the wound roll. We need ",woundRollReq_int,"to wound.\n")
+
+        input ("Press ENTER to roll . . . \n")
+
+        wounds = dice_roller(hits,woundRollReq_int, 0)
+
+        luck_result = luck_compare(hits, wounds, woundRollReq_int)
+
+        print (luck_result)
+
+        print ("That resulted in ",wounds,"wounds\n")
+        
+
+        print("Now saves of ",saveFailRollReq_int,"or less are needed\n")
+
+        input ("Press ENTER to roll . . . \n")
+
+        failed_saves = dice_roller(wounds, saveFailRollReq_int, 0)
+
+        luck_result = luck_compare(wounds, failed_saves, saveFailRollReq_int)
+
+        print (luck_result)
+
+        print ("We inflicted",failed_saves," wounds on the target\n")
+
+        input()
+        
+
+    elif setupChoice == 4:
+
+        break
+
+    else:
+
+        print ("Please enter 1, 2 or 3")
+        
+
+
+
+
